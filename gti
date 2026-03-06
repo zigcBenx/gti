@@ -3,6 +3,34 @@
 cmd="$1"
 cols=$(tput cols 2>/dev/null || echo 80)
 
+# Counter file to track mistype usage
+counter_file="$HOME/.gti_counter"
+
+# Initialize counter if it doesn't exist
+if [ ! -f "$counter_file" ]; then
+  echo "0" > "$counter_file"
+fi
+
+# Increment counter
+count=$(cat "$counter_file")
+count=$((count + 1))
+echo "$count" > "$counter_file"
+
+# Determine tuning stage based on count
+get_stage() {
+  if [ $count -ge 100 ]; then
+    echo "STAGE 3"
+  elif [ $count -ge 50 ]; then
+    echo "STAGE 2"
+  elif [ $count -ge 10 ]; then
+    echo "STAGE 1"
+  else
+    echo "STOCK"
+  fi
+}
+
+stage=$(get_stage)
+
 car_art='
                                                                                                     
                                             ....::::---=========-----:::::..                        
@@ -38,6 +66,88 @@ draw_frame() {
   done <<< "$car_art"
 }
 
+draw_car_with_exhaust() {
+  exhaust_level=$1
+  line_num=0
+  exhaust_line1=""
+  exhaust_line2=""
+  exhaust_line3=""
+
+  case $exhaust_level in
+    1)  exhaust_line1="  ." ;;
+    2)  exhaust_line1="  .." ;;
+    3)  exhaust_line1="  .*." ;;
+    4)  exhaust_line1="  .**."
+        exhaust_line2="  ." ;;
+    5)  exhaust_line1="  .***."
+        exhaust_line2="  .." ;;
+    6)  exhaust_line1="  .****."
+        exhaust_line2="  .**" ;;
+    7)  exhaust_line1="  .*****."
+        exhaust_line2="  .***" ;;
+    8)  exhaust_line1="  .**))**."
+        exhaust_line2="  .***." ;;
+    9)  exhaust_line1="  .**))))**."
+        exhaust_line2="  .*)))*." ;;
+    10) exhaust_line1="  .***))))***."
+        exhaust_line2="  .*))))*."
+        exhaust_line3="  .**." ;;
+    11) exhaust_line1="  .****)))))****."
+        exhaust_line2="  .**)))))**."
+        exhaust_line3="  .***." ;;
+    12) exhaust_line1="  .****))))))****."
+        exhaust_line2="  .***))))***."
+        exhaust_line3="  .***." ;;
+    13) exhaust_line1="  .****))W))****."
+        exhaust_line2="  .***))W))***."
+        exhaust_line3="  .**)).**" ;;
+    14) exhaust_line1="  .****)))WW)))****."
+        exhaust_line2="  .***)))W)))***."
+        exhaust_line3="  .**))))**." ;;
+    15) exhaust_line1="  .*****)))WW))))*****."
+        exhaust_line2="  .****)))WW)))****."
+        exhaust_line3="  .***)))))))***." ;;
+    16) exhaust_line1="  .****)))WW)))****. ~~"
+        exhaust_line2="  .***)))WW)))***. ~~"
+        exhaust_line3="  .**))))))**. ~" ;;
+    17) exhaust_line1="    .***))WW))***. ~~~  POP!"
+        exhaust_line2="    .**))WW))**. ~~~  POP!"
+        exhaust_line3="    .*))))))*. ~~  POP!" ;;
+    18) exhaust_line1="      .**))W))**. ~~~~  BANG!"
+        exhaust_line2="      .*))W))*. ~~~  BANG!"
+        exhaust_line3="      .*))))*. ~~  BANG!" ;;
+    19) exhaust_line1="        .*)))*. ~~~~~  CRACK!"
+        exhaust_line2="        .*))*.  ~~~~  CRACK!"
+        exhaust_line3="        .*)). ~~~  CRACK!" ;;
+    20) exhaust_line1="          .)*. ~~~~~~  BRATATATATA!"
+        exhaust_line2="          .*  ~~~~~  BRATATATATA!"
+        exhaust_line3="          .  ~~~~  BRATATATATA!" ;;
+    21) exhaust_line1="            . ~~~~~~~  POP! POP!"
+        exhaust_line2="              ~~~~~~  POP! POP!"
+        exhaust_line3="              ~~~~  POP! POP!" ;;
+    22) exhaust_line1="              ~~~~~~~~"
+        exhaust_line2="              ~~~~~~"
+        exhaust_line3="              ~~~" ;;
+    23) exhaust_line1="                ~~~~~"
+        exhaust_line2="                ~~~"
+        exhaust_line3="                ~" ;;
+  esac
+
+  while IFS= read -r line; do
+    line_num=$((line_num + 1))
+
+    if [ $line_num -eq 15 ]; then
+      echo "${line}${exhaust_line1}"
+    elif [ $line_num -eq 16 ] && [ -n "$exhaust_line2" ]; then
+      echo "${line}${exhaust_line2}"
+    elif [ $line_num -eq 17 ] && [ -n "$exhaust_line3" ]; then
+      echo "${line}${exhaust_line3}"
+    else
+      echo "$line"
+    fi
+  done <<< "$car_art"
+}
+
 animate() {
   direction="$1"
   width=35   # approximate car width
@@ -65,28 +175,126 @@ car() {
 
 status_art() {
   car
+
+  # Stage-specific stats with progressive HP scaling
+  case $stage in
+    "STOCK")
+      base_hp=110
+      hp="$base_hp hp"
+      accel="~9 sec"
+      mods="None"
+      ;;
+    "STAGE 1")
+      # Base 150 + progressive increase (1hp per mistype from 10-49)
+      base_hp=150
+      bonus_hp=$((count - 10))
+      [ $bonus_hp -gt 39 ] && bonus_hp=39
+      hp="$((base_hp + bonus_hp)) hp"
+      accel="~7.5 sec"
+      mods="ECU Remap, Cold Air Intake"
+      ;;
+    "STAGE 2")
+      # Base 200 + progressive increase (2hp per mistype from 50-99)
+      base_hp=200
+      bonus_hp=$(((count - 50) * 2))
+      [ $bonus_hp -gt 98 ] && bonus_hp=98
+      hp="$((base_hp + bonus_hp)) hp"
+      accel="~6.0 sec"
+      mods="Turbo Upgrade, Exhaust, Intercooler"
+      ;;
+    "STAGE 3")
+      # Base 300 + progressive increase (3hp per mistype from 100+)
+      base_hp=300
+      bonus_hp=$(((count - 100) * 3))
+      [ $bonus_hp -gt 300 ] && bonus_hp=300  # Cap at 600hp total
+      hp="$((base_hp + bonus_hp)) hp"
+      accel="~4.5 sec"
+      mods="Big Turbo, Forged Internals, INSANITY"
+      ;;
+  esac
+
   cat <<EOF
 
-GTI STATUS:
+GTI STATUS - $stage
 --------------
+Mistypes:    $count
 Engine:      1.8L 8V
-Horsepower:  110 hp
-0-100 km/h:  ~9 sec
+Horsepower:  $hp
+0-100 km/h:  $accel
 Weight:      ~810 kg
 Drive:       FWD
+Mods:        $mods
 Mood:        Ready to rev
 EOF
 }
 
 commit_art() {
-  car
-  cat <<EOF
+  # Stage-specific animation speed
+  case $stage in
+    "STOCK")
+      anim_speed=0.10
+      burst_count=3
+      ;;
+    "STAGE 1")
+      anim_speed=0.08
+      burst_count=4
+      ;;
+    "STAGE 2")
+      anim_speed=0.06
+      burst_count=5
+      ;;
+    "STAGE 3")
+      anim_speed=0.04
+      burst_count=7
+      ;;
+  esac
 
-*click*
-Ignition turned.
-History updated.
-Boost staged.
-EOF
+  clear
+  echo ""
+  echo "*click*"
+  sleep 0.3
+  echo "Turning ignition... [$stage]"
+  sleep 0.5
+  clear
+
+  draw_car_with_exhaust 0
+
+  echo ""
+  echo "VROOM VROOM VROOOOM!"
+  sleep 0.3
+
+  # MASSIVE FLAMES AND EXHAUST - faster with higher stages!
+  for i in {1..23}; do
+    clear
+    draw_car_with_exhaust $i
+    sleep $anim_speed
+  done
+
+  # Extra flames burst - more bursts for higher stages!
+  for i in $(seq 1 $burst_count); do
+    clear
+    draw_car_with_exhaust 15
+    sleep 0.05
+    clear
+    draw_car_with_exhaust 11
+    sleep 0.05
+    clear
+    draw_car_with_exhaust 14
+    sleep 0.05
+  done
+
+  clear
+  car
+  echo ""
+  echo ")))))))))) $stage ACTIVATED ))))))))))"
+  echo ""
+  echo "[X] Engine started!"
+  echo "[X] Changes committed to history!"
+  echo "[X] Ready to BLAST OFF!"
+  echo ""
+  echo "Mistypes: $count | Next upgrade at: $([ $count -lt 10 ] && echo "10" || [ $count -lt 50 ] && echo "50" || [ $count -lt 100 ] && echo "100" || echo "MAX")"
+  echo ""
+  echo "Smells like... burnt rubber, racing fuel, and PURE VICTORY."
 }
 
 case "$cmd" in
